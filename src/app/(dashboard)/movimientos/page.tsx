@@ -18,11 +18,7 @@ export default async function MovimientosPage({
 
   let txQuery = supabase
     .from('transactions')
-    .select(`
-      *,
-      category:categories(id, name, color),
-      account:accounts!transactions_account_id_fkey(id, name)
-    `)
+    .select('*, category:categories(id, name, color)')
     .eq('user_id', user.id)
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
@@ -46,11 +42,7 @@ export default async function MovimientosPage({
     supabase.from('accounts').select('*').eq('user_id', user.id).eq('is_active', true).order('name'),
     supabase.from('categories').select('*').eq('user_id', user.id).eq('is_active', true).order('sort_order'),
     supabase.from('transactions')
-      .select(`
-        *,
-        category:categories(id, name),
-        account:accounts!transactions_account_id_fkey(id, name)
-      `)
+      .select('*, category:categories(id, name)')
       .eq('user_id', user.id)
       .eq('status', 'pending_review')
       .order('created_at', { ascending: false }),
