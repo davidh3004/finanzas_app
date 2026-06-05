@@ -147,24 +147,22 @@ BEGIN
     VALUES (p_user_id, 'Transferencia entre cuentas', 'transfer', '#64748b', 'ArrowLeftRight', TRUE, 99);
 
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- ---------------------------------------------------------------
 -- CONFIG inicial + categorías al crear un usuario
 -- ---------------------------------------------------------------
-CREATE OR REPLACE FUNCTION handle_new_user()
+CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Config por defecto
-  INSERT INTO config (user_id, ingreso_bruto, ingreso_neto)
+  INSERT INTO public.config (user_id, ingreso_bruto, ingreso_neto)
     VALUES (NEW.id, 0, 0);
 
-  -- Categorías por defecto
-  PERFORM create_default_categories(NEW.id);
+  PERFORM public.create_default_categories(NEW.id);
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
