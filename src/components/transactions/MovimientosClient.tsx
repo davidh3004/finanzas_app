@@ -14,12 +14,8 @@ import Link from 'next/link'
 interface MovimientosClientProps {
   accounts: Account[]
   categories: Category[]
-  transactions: (Transaction & {
-    category?: { id: string; name: string; color: string | null } | null
-  })[]
-  pendingTransactions: (Transaction & {
-    category?: { id: string; name: string } | null
-  })[]
+  transactions: Transaction[]
+  pendingTransactions: Transaction[]
   openForm?: boolean
   filtro?: string
 }
@@ -138,6 +134,7 @@ export default function MovimientosClient({
               const Icon = typeIcon[type] ?? ArrowLeftRight
               const colorClass = typeColor[type] ?? 'text-slate-400'
               const accountName = accounts.find(a => a.id === t.account_id)?.name
+              const category = t.category_id ? categories.find(c => c.id === t.category_id) : null
               return (
                 <div key={t.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-800/40 transition-colors">
                   <div className={cn('p-2 rounded-xl bg-slate-800', colorClass)}>
@@ -149,14 +146,11 @@ export default function MovimientosClient({
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <p className="text-xs text-slate-500">{formatDate(t.date)}</p>
-                      {t.category && (
+                      {category && (
                         <>
                           <span className="text-slate-700">·</span>
-                          <p
-                            className="text-xs truncate"
-                            style={{ color: (t.category as { color: string | null; name: string }).color ?? '#64748b' }}
-                          >
-                            {(t.category as { name: string }).name}
+                          <p className="text-xs truncate" style={{ color: category.color ?? '#64748b' }}>
+                            {category.name}
                           </p>
                         </>
                       )}

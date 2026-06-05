@@ -7,10 +7,7 @@ import { formatCurrency, formatDate, cn } from '@/lib/utils'
 import { Check, X, ChevronDown, Loader2, Clock } from 'lucide-react'
 
 interface PendingReviewCardProps {
-  transaction: Transaction & {
-    category?: { id: string; name: string } | null
-    account?: { id: string; name: string } | null
-  }
+  transaction: Transaction
   categories: Category[]
 }
 

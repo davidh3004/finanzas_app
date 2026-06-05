@@ -16,9 +16,10 @@ export default async function MovimientosPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
+  // Query sin joins para evitar problemas con FK ambiguos
   let txQuery = supabase
     .from('transactions')
-    .select('*, category:categories(id, name, color)')
+    .select('*')
     .eq('user_id', user.id)
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
@@ -33,7 +34,7 @@ export default async function MovimientosPage({
   }
 
   const [
-    { data: transactions },
+    { data: transactions, error: txError },
     { data: accounts },
     { data: categories },
     { data: pending },
@@ -41,12 +42,21 @@ export default async function MovimientosPage({
     txQuery,
     supabase.from('accounts').select('*').eq('user_id', user.id).eq('is_active', true).order('name'),
     supabase.from('categories').select('*').eq('user_id', user.id).eq('is_active', true).order('sort_order'),
-    supabase.from('transactions')
-      .select('*, category:categories(id, name)')
+    supabase
+      .from('transactions')
+      .select('*')
       .eq('user_id', user.id)
       .eq('status', 'pending_review')
       .order('created_at', { ascending: false }),
   ])
+
+  if (txError) {
+    return (
+      <div className="max-w-3xl mx-auto p-4">
+        <p className="text-red-400 text-sm">Error cargando movimientos: {txError.message}</p>
+      </div>
+    )
+  }
 
   // Excluir pendientes de la lista principal si se muestra "Todos"
   const confirmedTx = filtro === 'pending_review'
