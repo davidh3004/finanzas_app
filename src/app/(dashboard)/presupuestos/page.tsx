@@ -1,7 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { formatCurrency } from '@/lib/utils'
-import { Card } from '@/components/ui/Card'
-import { ProgressBar } from '@/components/ui/ProgressBar'
+import PresupuestosClient from '@/components/budgets/PresupuestosClient'
 
 export default async function PresupuestosPage() {
   const supabase = await createClient()
@@ -12,66 +10,76 @@ export default async function PresupuestosPage() {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
   const lastDay  = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
 
-  // Gastos agrupados por categoría padre este mes
-  const { data: transactions } = await supabase
-    .from('transactions')
-    .select('amount, category:categories(id, name, parent_id, color)')
-    .eq('user_id', user.id)
-    .eq('type', 'expense')
-    .eq('status', 'confirmed')
-    .gte('date', firstDay)
-    .lte('date', lastDay)
+  const [
+    { data: categories },
+    { data: transactions },
+    { data: budgets },
+  ] = await Promise.all([
+    // Solo categorías padre (nivel raíz) de tipo expense/saving
+    supabase.from('categories')
+      .select('id, name, color, kind')
+      .eq('user_id', user.id)
+      .is('parent_id', null)
+      .neq('kind', 'transfer')
+      .neq('kind', 'income')
+      .eq('is_active', true)
+      .order('sort_order'),
 
-  // Agrupar por categoría
-  const byCategory: Record<string, { name: string; color: string | null; total: number }> = {}
-  for (const t of transactions ?? []) {
-    const cat = t.category as unknown as { id: string; name: string; parent_id: string | null; color: string | null } | null
-    if (!cat) continue
-    const key = cat.id
-    if (!byCategory[key]) {
-      byCategory[key] = { name: cat.name, color: cat.color, total: 0 }
-    }
-    byCategory[key].total += Number(t.amount)
+    // Todos los gastos confirmados del mes
+    supabase.from('transactions')
+      .select('amount, category_id, category:categories(parent_id)')
+      .eq('user_id', user.id)
+      .eq('type', 'expense')
+      .eq('status', 'confirmed')
+      .gte('date', firstDay)
+      .lte('date', lastDay),
+
+    supabase.from('budgets')
+      .select('category_id, amount')
+      .eq('user_id', user.id)
+      .eq('period', 'monthly'),
+  ])
+
+  // Construir mapa de gastos por categoría padre
+  const spentByParent: Record<string, number> = {}
+
+  // Mapa categoryId → parentId
+  const allCategories = await supabase
+    .from('categories')
+    .select('id, parent_id')
+    .eq('user_id', user.id)
+
+  const parentMap: Record<string, string | null> = {}
+  for (const c of allCategories.data ?? []) {
+    parentMap[c.id] = c.parent_id
   }
 
-  const sorted = Object.entries(byCategory).sort(([, a], [, b]) => b.total - a.total)
-  const totalGastos = sorted.reduce((s, [, v]) => s + v.total, 0)
+  for (const t of transactions ?? []) {
+    if (!t.category_id) continue
+    const parentId = parentMap[t.category_id] ?? t.category_id
+    spentByParent[parentId] = (spentByParent[parentId] ?? 0) + Number(t.amount)
+  }
+
+  const budgetMap: Record<string, number> = {}
+  for (const b of budgets ?? []) {
+    budgetMap[b.category_id] = Number(b.amount)
+  }
+
+  const totalGastos = Object.values(spentByParent).reduce((s, v) => s + v, 0)
+
+  const categoryRows = (categories ?? []).map(cat => ({
+    id:       cat.id,
+    name:     cat.name,
+    color:    cat.color,
+    spent:    spentByParent[cat.id] ?? 0,
+    budget:   budgetMap[cat.id] ?? null,
+    currency: 'DOP',
+  }))
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
-      <Card>
-        <div className="flex justify-between text-sm mb-1">
-          <span className="text-slate-300 font-medium">Total gastos del mes</span>
-          <span className="text-red-400 font-bold">{formatCurrency(totalGastos)}</span>
-        </div>
-      </Card>
-
-      <Card className="p-0 overflow-hidden">
-        {sorted.length === 0 ? (
-          <p className="text-center text-slate-400 py-12 text-sm">
-            Sin gastos registrados este mes.
-          </p>
-        ) : (
-          <div className="divide-y divide-slate-800">
-            {sorted.map(([id, { name, color, total }]) => {
-              const pct = totalGastos > 0 ? (total / totalGastos) * 100 : 0
-              return (
-                <div key={id} className="px-4 py-3">
-                  <div className="flex justify-between text-sm mb-1.5">
-                    <span className="text-slate-200 font-medium">{name}</span>
-                    <span className="text-slate-400">{formatCurrency(total)}</span>
-                  </div>
-                  <ProgressBar
-                    value={pct}
-                    barClassName={color ? '' : undefined}
-                    showLabel
-                  />
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </Card>
-    </div>
+    <PresupuestosClient
+      categories={categoryRows}
+      totalGastos={totalGastos}
+    />
   )
 }
