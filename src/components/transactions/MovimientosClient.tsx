@@ -58,7 +58,7 @@ export default function MovimientosClient({
 
   function handleSuccess() {
     setModalOpen(false)
-    router.refresh()
+    window.location.href = '/movimientos'
   }
 
   return (

@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import MovimientosClient from '@/components/transactions/MovimientosClient'
 
+export const dynamic = 'force-dynamic'
+
 export default async function MovimientosPage({
   searchParams,
 }: {

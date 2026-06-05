@@ -8,6 +8,7 @@ interface FundInput {
   name: string
   type: FundType
   targetAmount: number
+  currentAmount?: number
   currency: string
   projectionRate: number
   linkedAccountId?: string | null
@@ -47,16 +48,21 @@ export async function updateFund(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'No autenticado' }
 
+  const updatePayload: Record<string, unknown> = {
+    name:              input.name,
+    type:              input.type,
+    target_amount:     input.targetAmount,
+    currency:          input.currency,
+    projection_rate:   input.projectionRate / 100,
+    linked_account_id: input.linkedAccountId ?? null,
+  }
+  if (input.currentAmount !== undefined) {
+    updatePayload.current_amount = input.currentAmount
+  }
+
   const { error } = await supabase
     .from('funds')
-    .update({
-      name:              input.name,
-      type:              input.type,
-      target_amount:     input.targetAmount,
-      currency:          input.currency,
-      projection_rate:   input.projectionRate / 100,
-      linked_account_id: input.linkedAccountId ?? null,
-    })
+    .update(updatePayload)
     .eq('id', id)
     .eq('user_id', user.id)
 

@@ -26,6 +26,7 @@ export default function FundForm({ fund, accounts, onSuccess }: FundFormProps) {
     fund ? String(Number(fund.projection_rate) * 100) : ''
   )
   const [linkedAccountId, setLinkedAccountId] = useState(fund?.linked_account_id ?? '')
+  const [currentAmount, setCurrentAmount] = useState(fund ? String(fund.current_amount) : '')
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState<string | null>(null)
 
@@ -49,6 +50,7 @@ export default function FundForm({ fund, accounts, onSuccess }: FundFormProps) {
       currency,
       projectionRate: rate,
       linkedAccountId: linkedAccountId || null,
+      ...(fund ? { currentAmount: parseFloat(currentAmount.replace(',', '.')) || 0 } : {}),
     }
 
     const result = fund
@@ -95,6 +97,22 @@ export default function FundForm({ fund, accounts, onSuccess }: FundFormProps) {
           ))}
         </div>
       </div>
+
+      {/* Saldo actual — solo en edición */}
+      {fund && (
+        <div>
+          <label className="block text-xs text-slate-400 mb-1.5">Saldo actual</label>
+          <input
+            type="number"
+            value={currentAmount}
+            onChange={e => setCurrentAmount(e.target.value)}
+            placeholder="0"
+            step="0.01"
+            min="0"
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 transition"
+          />
+        </div>
+      )}
 
       {/* Meta + Moneda */}
       <div className="grid grid-cols-2 gap-3">
