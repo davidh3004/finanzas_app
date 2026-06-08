@@ -3,11 +3,12 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { markAlertRead, markAllAlertsRead } from '@/app/actions/alerts'
+import { sendDailySummary } from '@/app/actions/email'
 import type { Alert } from '@/types/database'
 import { Card } from '@/components/ui/Card'
 import {
   Bell, BellOff, TrendingDown, Wallet,
-  CreditCard, CalendarClock, Check, CheckCheck,
+  CreditCard, CalendarClock, Check, CheckCheck, Mail, Loader2,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 
@@ -25,9 +26,16 @@ const TYPE_COLOR: Record<string, string> = {
   card_due:         'text-blue-400',
 }
 
-export default function AlertasClient({ alerts: initial }: { alerts: Alert[] }) {
-  const [readIds, setReadIds] = useState<Set<string>>(new Set())
-  const [allDone, setAllDone] = useState(false)
+interface Props {
+  alerts:          Alert[]
+  emailConfigured: boolean
+}
+
+export default function AlertasClient({ alerts: initial, emailConfigured }: Props) {
+  const [readIds,       setReadIds]       = useState<Set<string>>(new Set())
+  const [allDone,       setAllDone]       = useState(false)
+  const [sendingEmail,  setSendingEmail]  = useState(false)
+  const [emailMsg,      setEmailMsg]      = useState<string | null>(null)
   const router = useRouter()
 
   const alerts = initial.map(a => ({ ...a, read: a.read || readIds.has(a.id) || allDone }))
@@ -45,6 +53,15 @@ export default function AlertasClient({ alerts: initial }: { alerts: Alert[] }) 
     router.refresh()
   }
 
+  async function handleSendEmail() {
+    setSendingEmail(true)
+    setEmailMsg(null)
+    const result = await sendDailySummary()
+    setSendingEmail(false)
+    setEmailMsg(result.success ? '✓ Email enviado' : `Error: ${result.error}`)
+    setTimeout(() => setEmailMsg(null), 4000)
+  }
+
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
       <div className="flex items-center justify-between min-h-[20px]">
@@ -53,15 +70,29 @@ export default function AlertasClient({ alerts: initial }: { alerts: Alert[] }) 
             ? `${unread} ${unread === 1 ? 'alerta sin leer' : 'alertas sin leer'}`
             : 'Todo al día'}
         </p>
-        {unread > 0 && (
-          <button
-            onClick={handleMarkAll}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
-          >
-            <CheckCheck className="w-3.5 h-3.5" />
-            Marcar todo como leído
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {emailConfigured && (
+            <button
+              onClick={handleSendEmail}
+              disabled={sendingEmail}
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+            >
+              {sendingEmail
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <Mail className="w-3.5 h-3.5" />}
+              {emailMsg ?? 'Enviar resumen'}
+            </button>
+          )}
+          {unread > 0 && (
+            <button
+              onClick={handleMarkAll}
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+            >
+              <CheckCheck className="w-3.5 h-3.5" />
+              Marcar todo
+            </button>
+          )}
+        </div>
       </div>
 
       <Card className="p-0 overflow-hidden">
@@ -73,8 +104,8 @@ export default function AlertasClient({ alerts: initial }: { alerts: Alert[] }) 
         ) : (
           <div className="divide-y divide-slate-800">
             {alerts.map((alert) => {
-              const Icon       = TYPE_ICON[alert.type] ?? Bell
-              const iconColor  = TYPE_COLOR[alert.type] ?? 'text-slate-500'
+              const Icon      = TYPE_ICON[alert.type] ?? Bell
+              const iconColor = TYPE_COLOR[alert.type] ?? 'text-slate-500'
               return (
                 <div
                   key={alert.id}

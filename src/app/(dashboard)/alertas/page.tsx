@@ -15,5 +15,7 @@ export default async function AlertasPage() {
     .order('created_at', { ascending: false })
     .limit(50)
 
-  return <AlertasClient alerts={alerts ?? []} />
+  const emailConfigured = !!(process.env.RESEND_API_KEY)
+
+  return <AlertasClient alerts={alerts ?? []} emailConfigured={emailConfigured} />
 }
