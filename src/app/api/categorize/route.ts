@@ -45,11 +45,20 @@ export async function POST(request: NextRequest) {
     })
   }
 
+  // Cargar categorías una sola vez — se reutilizan en pasos 2 y 3
+  const { data: categories } = await supabase
+    .from('categories')
+    .select('id, name, kind, parent_id')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+
+  const catNameById = Object.fromEntries((categories ?? []).map(c => [c.id, c.name]))
+
   // 2. Buscar en historial: mismo merchant → categoría más frecuente
   if (body.merchant) {
     const { data: history } = await supabase
       .from('transactions')
-      .select('category_id, category:categories(name)')
+      .select('category_id')
       .eq('user_id', user.id)
       .eq('status', 'confirmed')
       .ilike('merchant', `%${body.merchant}%`)
@@ -57,21 +66,18 @@ export async function POST(request: NextRequest) {
       .limit(10)
 
     if (history && history.length >= 3) {
-      // Categoría más frecuente
-      const freq: Record<string, { count: number; name: string }> = {}
+      const freq: Record<string, number> = {}
       for (const t of history) {
         if (!t.category_id) continue
-        const catName = (t.category as unknown as { name: string } | null)?.name ?? ''
-        if (!freq[t.category_id]) freq[t.category_id] = { count: 0, name: catName }
-        freq[t.category_id].count++
+        freq[t.category_id] = (freq[t.category_id] ?? 0) + 1
       }
-      const top = Object.entries(freq).sort(([, a], [, b]) => b.count - a.count)[0]
-      if (top && top[1].count >= 2) {
+      const top = Object.entries(freq).sort(([, a], [, b]) => b - a)[0]
+      if (top && top[1] >= 2) {
         return NextResponse.json({
           category_id:   top[0],
-          category_name: top[1].name,
+          category_name: catNameById[top[0]] ?? '',
           confidence:    0.85,
-          reason:        `Basado en ${top[1].count} compras previas en este merchant`,
+          reason:        `Basado en ${top[1]} compras previas en este merchant`,
           source:        'history',
         })
       }
@@ -79,15 +85,9 @@ export async function POST(request: NextRequest) {
   }
 
   // 3. Llamar a Claude si no hay match suficiente
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('id, name, kind, parent_id')
-    .eq('user_id', user.id)
-    .eq('is_active', true)
-
   const { data: recentPatterns } = await supabase
     .from('transactions')
-    .select('merchant, category:categories(name)')
+    .select('merchant, category_id')
     .eq('user_id', user.id)
     .eq('status', 'confirmed')
     .not('merchant', 'is', null)
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     categories: (categories ?? []).map(c => ({ id: c.id, name: c.name, kind: c.kind })),
     recentPatterns: (recentPatterns ?? []).map(t => ({
       merchant: t.merchant ?? '',
-      category_name: (t.category as unknown as { name: string } | null)?.name ?? '',
+      category_name: t.category_id ? (catNameById[t.category_id] ?? '') : '',
     })),
   })
 
