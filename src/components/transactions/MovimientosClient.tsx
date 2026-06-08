@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Modal from '@/components/ui/Modal'
 import TransactionForm from '@/components/transactions/TransactionForm'
+import EditTransactionForm from '@/components/transactions/EditTransactionForm'
 import PendingReviewCard from '@/components/transactions/PendingReviewCard'
 import { Card } from '@/components/ui/Card'
 import type { Account, Category, Transaction } from '@/types/database'
 import { formatCurrency, formatDate, cn } from '@/lib/utils'
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Plus } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Plus, Pencil } from 'lucide-react'
 import Link from 'next/link'
 
 interface MovimientosClientProps {
@@ -41,6 +42,7 @@ export default function MovimientosClient({
   filtro,
 }: MovimientosClientProps) {
   const [modalOpen, setModalOpen] = useState(openForm)
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const router = useRouter()
 
   // Limpiar el ?nuevo=1 de la URL una vez que se abrió el modal
@@ -52,6 +54,11 @@ export default function MovimientosClient({
 
   function handleSuccess() {
     setModalOpen(false)
+    window.location.href = '/movimientos'
+  }
+
+  function handleEditSuccess() {
+    setEditingTx(null)
     window.location.href = '/movimientos'
   }
 
@@ -162,11 +169,17 @@ export default function MovimientosClient({
                       )}
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
+                  <div className="text-right flex-shrink-0 flex items-center gap-2">
                     <p className={cn('text-sm font-semibold', colorClass)}>
                       {t.type === 'income' ? '+' : t.type === 'expense' ? '-' : ''}
                       {formatCurrency(Number(t.amount), t.currency)}
                     </p>
+                    <button
+                      onClick={() => setEditingTx(t)}
+                      className="p-1.5 rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-700 transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               )
@@ -174,6 +187,17 @@ export default function MovimientosClient({
           </div>
         )}
       </Card>
+
+      {/* Modal editar movimiento */}
+      <Modal open={editingTx !== null} onClose={() => setEditingTx(null)} title="Editar movimiento">
+        {editingTx && (
+          <EditTransactionForm
+            transaction={editingTx}
+            categories={categories}
+            onSuccess={handleEditSuccess}
+          />
+        )}
+      </Modal>
 
       {/* Modal nuevo movimiento */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo movimiento">

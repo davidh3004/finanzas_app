@@ -114,3 +114,34 @@ export async function updateTransactionCategory(
 
   return { success: true }
 }
+
+export async function updateTransaction(input: {
+  id:          string
+  amount:      number
+  merchant:    string | null
+  description: string | null
+  categoryId:  string | null
+  date:        string
+}): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'No autenticado' }
+
+  const { error } = await supabase.rpc('update_transaction', {
+    p_transaction_id: input.id,
+    p_user_id:        user.id,
+    p_amount:         input.amount,
+    p_merchant:       input.merchant ?? null,
+    p_description:    input.description ?? null,
+    p_category_id:    input.categoryId ?? null,
+    p_date:           input.date,
+  })
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/')
+  revalidatePath('/movimientos')
+  revalidatePath('/cuentas')
+  revalidatePath('/presupuestos')
+  return { success: true }
+}
