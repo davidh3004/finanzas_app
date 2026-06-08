@@ -49,6 +49,8 @@ export async function createTransaction(
   revalidatePath('/cuentas')
   revalidatePath('/presupuestos')
 
+  try { await supabase.rpc('generate_user_alerts', { p_user_id: user.id }) } catch (_) {}
+
   return { success: true }
 }
 
@@ -69,6 +71,8 @@ export async function confirmTransaction(
   revalidatePath('/')
   revalidatePath('/movimientos')
   revalidatePath('/cuentas')
+
+  try { await supabase.rpc('generate_user_alerts', { p_user_id: user.id }) } catch (_) {}
 
   return { success: true }
 }
