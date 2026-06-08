@@ -10,7 +10,10 @@ export async function sendDailySummaryForUser(
 
   const toEmail = process.env.REPORT_TO_EMAIL ?? 'henriquezdavid3004@gmail.com'
   const appUrl  = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  const from    = process.env.RESEND_FROM_EMAIL   ?? 'Finanzas <onboarding@resend.dev>'
+  // Use plain onboarding@resend.dev for testing (no custom domain needed).
+  // To use your own domain, verify it at resend.com/domains and set
+  // RESEND_FROM_EMAIL=Finanzas <noreply@yourdomain.com>
+  const from    = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
 
   const supabase = createAdminClient()
 
@@ -91,6 +94,11 @@ export async function sendDailySummaryForUser(
     html,
   })
 
-  if (error) return { success: false, error: error.message }
+  if (error) {
+    const hint = error.message.toLowerCase().includes('domain')
+      ? ' — verifica el dominio en resend.com/domains o deja RESEND_FROM_EMAIL vacío para usar onboarding@resend.dev'
+      : ''
+    return { success: false, error: error.message + hint }
+  }
   return { success: true }
 }
