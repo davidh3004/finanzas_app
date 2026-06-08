@@ -7,24 +7,39 @@ export const dynamic = 'force-dynamic'
 export default async function MovimientosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filtro?: string; nuevo?: string }>
+  searchParams: Promise<{
+    filtro?: string
+    nuevo?: string
+    tipo?: string
+    cuenta?: string
+    categoria?: string
+    desde?: string
+    hasta?: string
+    moneda?: string
+  }>
 }) {
-  const params = await searchParams
-  const filtro  = params.filtro
-  const openForm = params.nuevo === '1'
+  const params    = await searchParams
+  const filtro    = params.filtro
+  const openForm  = params.nuevo === '1'
+  const tipo      = params.tipo
+  const cuenta    = params.cuenta
+  const categoria = params.categoria
+  const desde     = params.desde
+  const hasta     = params.hasta
+  const moneda    = params.moneda
 
   const [user, supabase] = await Promise.all([getUser(), createClient()])
   if (!user) return null
 
-  // Query sin joins para evitar problemas con FK ambiguos
   let txQuery = supabase
     .from('transactions')
     .select('*')
     .eq('user_id', user.id)
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
-    .limit(100)
+    .limit(200)
 
+  // Status filter
   if (filtro === 'confirmed') {
     txQuery = txQuery.eq('status', 'confirmed')
   } else if (filtro === 'pending_review') {
@@ -32,6 +47,14 @@ export default async function MovimientosPage({
   } else {
     txQuery = txQuery.in('status', ['confirmed', 'pending_review'])
   }
+
+  // New filters
+  if (tipo)      txQuery = txQuery.eq('type', tipo)
+  if (cuenta)    txQuery = txQuery.eq('account_id', cuenta)
+  if (categoria) txQuery = txQuery.eq('category_id', categoria)
+  if (desde)     txQuery = txQuery.gte('date', desde)
+  if (hasta)     txQuery = txQuery.lte('date', hasta)
+  if (moneda)    txQuery = txQuery.eq('currency', moneda)
 
   const [
     { data: transactions, error: txError },
@@ -60,10 +83,12 @@ export default async function MovimientosPage({
     )
   }
 
-  // Excluir pendientes de la lista principal si se muestra "Todos"
+  // When not filtering by status, separate pendientes from the main list
   const confirmedTx = filtro === 'pending_review'
     ? (transactions ?? [])
     : (transactions ?? []).filter(t => t.status === 'confirmed')
+
+  const activeFilters = { filtro, tipo, cuenta, categoria, desde, hasta, moneda }
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -73,7 +98,7 @@ export default async function MovimientosPage({
         transactions={(confirmedTx ?? []) as never}
         pendingTransactions={(pending ?? []) as never}
         openForm={openForm}
-        filtro={filtro}
+        activeFilters={activeFilters}
         tasaUsdDop={Number(config?.tasa_usd_dop ?? 60)}
       />
     </div>

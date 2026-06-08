@@ -4,6 +4,7 @@ import { formatCurrency, calcMonthsToGoal } from '@/lib/utils'
 import { StatCard } from '@/components/ui/StatCard'
 import { Card, CardTitle } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+import GastosCategoriasBarChart from '@/components/charts/GastosCategoriasBarChart'
 import { Wallet, TrendingDown, TrendingUp, Target, Clock, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -166,6 +167,26 @@ export default async function DashboardPage() {
           </div>
         </Card>
       )}
+
+      {/* ── Gastos por categoría ────────────────────────── */}
+      {Object.keys(spentByParent).length > 0 && (() => {
+        const chartData = parentCategories
+          .filter(c => spentByParent[c.id])
+          .map(c => ({ name: c.name, amount: spentByParent[c.id], color: c.color ?? '#64748b' }))
+          .sort((a, b) => b.amount - a.amount)
+          .slice(0, 5)
+        return chartData.length > 0 ? (
+          <Card>
+            <div className="flex items-center justify-between mb-3">
+              <CardTitle className="mb-0 capitalize">Gastos por categoría — {mes}</CardTitle>
+              <Link href="/reportes" className="text-xs text-emerald-400 flex items-center gap-1 hover:underline">
+                Ver reportes <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <GastosCategoriasBarChart data={chartData} />
+          </Card>
+        ) : null
+      })()}
 
       {/* ── Fondos ──────────────────────────────────────── */}
       {(funds?.length ?? 0) > 0 && (

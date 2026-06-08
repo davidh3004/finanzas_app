@@ -2,13 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { markAlertRead, markAllAlertsRead } from '@/app/actions/alerts'
+import { markAlertRead, markAllAlertsRead, markAlertUnread } from '@/app/actions/alerts'
 import { sendDailySummary } from '@/app/actions/email'
 import type { Alert } from '@/types/database'
 import { Card } from '@/components/ui/Card'
 import {
   Bell, BellOff, TrendingDown, Wallet,
-  CreditCard, CalendarClock, Check, CheckCheck, Mail, Loader2,
+  CreditCard, CalendarClock, Check, CheckCheck, Mail, Loader2, RotateCcw,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 
@@ -32,23 +32,36 @@ interface Props {
 }
 
 export default function AlertasClient({ alerts: initial, emailConfigured }: Props) {
-  const [readIds,       setReadIds]       = useState<Set<string>>(new Set())
-  const [allDone,       setAllDone]       = useState(false)
-  const [sendingEmail,  setSendingEmail]  = useState(false)
-  const [emailMsg,      setEmailMsg]      = useState<string | null>(null)
+  const [readIds,    setReadIds]    = useState<Set<string>>(new Set())
+  const [unreadIds,  setUnreadIds]  = useState<Set<string>>(new Set())
+  const [allDone,    setAllDone]    = useState(false)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailMsg,   setEmailMsg]   = useState<string | null>(null)
   const router = useRouter()
 
-  const alerts = initial.map(a => ({ ...a, read: a.read || readIds.has(a.id) || allDone }))
-  const unread  = alerts.filter(a => !a.read).length
+  const alerts = initial.map(a => {
+    const isRead = (a.read || readIds.has(a.id) || allDone) && !unreadIds.has(a.id)
+    return { ...a, read: isRead }
+  })
+  const unread = alerts.filter(a => !a.read).length
 
   async function handleMarkRead(id: string) {
+    setUnreadIds(prev => { const s = new Set(prev); s.delete(id); return s })
     setReadIds(prev => new Set([...prev, id]))
     await markAlertRead(id)
     router.refresh()
   }
 
+  async function handleMarkUnread(id: string) {
+    setReadIds(prev => { const s = new Set(prev); s.delete(id); return s })
+    setUnreadIds(prev => new Set([...prev, id]))
+    await markAlertUnread(id)
+    router.refresh()
+  }
+
   async function handleMarkAll() {
     setAllDone(true)
+    setUnreadIds(new Set())
     await markAllAlertsRead()
     router.refresh()
   }
@@ -132,7 +145,13 @@ export default function AlertasClient({ alerts: initial, emailConfigured }: Prop
                       <Check className="w-3.5 h-3.5" />
                     </button>
                   ) : (
-                    <span className="w-2 h-2 rounded-full bg-slate-700 flex-shrink-0 mt-1.5" />
+                    <button
+                      onClick={() => handleMarkUnread(alert.id)}
+                      className="p-1.5 rounded-lg text-slate-700 hover:text-slate-400 hover:bg-slate-800 transition-colors flex-shrink-0"
+                      title="Marcar como no leída"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                    </button>
                   )}
                 </div>
               )
