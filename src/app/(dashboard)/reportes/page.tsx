@@ -1,10 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/supabase/get-user'
 import { formatCurrency } from '@/lib/utils'
 import { Card, CardTitle } from '@/components/ui/Card'
 
 export default async function ReportesPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [user, supabase] = await Promise.all([getUser(), createClient()])
   if (!user) return null
 
   // Últimos 6 meses

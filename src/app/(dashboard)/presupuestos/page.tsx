@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/supabase/get-user'
 import PresupuestosClient from '@/components/budgets/PresupuestosClient'
 
 export default async function PresupuestosPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [user, supabase] = await Promise.all([getUser(), createClient()])
   if (!user) return null
 
   const now = new Date()

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/supabase/get-user'
 import { formatCurrency, calcMonthsToGoal } from '@/lib/utils'
 import { StatCard } from '@/components/ui/StatCard'
 import { Card, CardTitle } from '@/components/ui/Card'
@@ -8,8 +9,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [user, supabase] = await Promise.all([getUser(), createClient()])
   if (!user) return null
 
   const now = new Date()

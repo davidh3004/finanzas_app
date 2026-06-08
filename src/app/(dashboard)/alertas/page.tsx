@@ -1,11 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/supabase/get-user'
 import AlertasClient from '@/components/alertas/AlertasClient'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AlertasPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [user, supabase] = await Promise.all([getUser(), createClient()])
   if (!user) return null
 
   const { data: alerts } = await supabase

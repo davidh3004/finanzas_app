@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/supabase/get-user'
 import MovimientosClient from '@/components/transactions/MovimientosClient'
 
 export const dynamic = 'force-dynamic'
@@ -12,8 +13,7 @@ export default async function MovimientosPage({
   const filtro  = params.filtro
   const openForm = params.nuevo === '1'
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [user, supabase] = await Promise.all([getUser(), createClient()])
   if (!user) return null
 
   // Query sin joins para evitar problemas con FK ambiguos
