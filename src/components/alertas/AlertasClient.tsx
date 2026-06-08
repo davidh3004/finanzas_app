@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { markAlertRead, markAllAlertsRead } from '@/app/actions/alerts'
 import type { Alert } from '@/types/database'
 import { Card } from '@/components/ui/Card'
@@ -27,19 +28,21 @@ const TYPE_COLOR: Record<string, string> = {
 export default function AlertasClient({ alerts: initial }: { alerts: Alert[] }) {
   const [readIds, setReadIds] = useState<Set<string>>(new Set())
   const [allDone, setAllDone] = useState(false)
-  const [, startTransition] = useTransition()
+  const router = useRouter()
 
   const alerts = initial.map(a => ({ ...a, read: a.read || readIds.has(a.id) || allDone }))
-  const unread = alerts.filter(a => !a.read).length
+  const unread  = alerts.filter(a => !a.read).length
 
-  function handleMarkRead(id: string) {
+  async function handleMarkRead(id: string) {
     setReadIds(prev => new Set([...prev, id]))
-    startTransition(async () => { await markAlertRead(id) })
+    await markAlertRead(id)
+    router.refresh()
   }
 
-  function handleMarkAll() {
+  async function handleMarkAll() {
     setAllDone(true)
-    startTransition(async () => { await markAllAlertsRead() })
+    await markAllAlertsRead()
+    router.refresh()
   }
 
   return (
@@ -70,8 +73,8 @@ export default function AlertasClient({ alerts: initial }: { alerts: Alert[] }) 
         ) : (
           <div className="divide-y divide-slate-800">
             {alerts.map((alert) => {
-              const Icon = TYPE_ICON[alert.type] ?? Bell
-              const iconColor = TYPE_COLOR[alert.type] ?? 'text-slate-500'
+              const Icon       = TYPE_ICON[alert.type] ?? Bell
+              const iconColor  = TYPE_COLOR[alert.type] ?? 'text-slate-500'
               return (
                 <div
                   key={alert.id}
