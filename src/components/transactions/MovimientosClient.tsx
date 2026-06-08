@@ -19,6 +19,7 @@ interface MovimientosClientProps {
   pendingTransactions: Transaction[]
   openForm?: boolean
   filtro?: string
+  tasaUsdDop?: number
 }
 
 const typeIcon = {
@@ -40,6 +41,7 @@ export default function MovimientosClient({
   pendingTransactions,
   openForm = false,
   filtro,
+  tasaUsdDop = 60,
 }: MovimientosClientProps) {
   const [modalOpen, setModalOpen] = useState(openForm)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
@@ -219,6 +221,7 @@ export default function MovimientosClient({
             accounts={accounts}
             categories={categories}
             onSuccess={handleSuccess}
+            tasaUsdDop={tasaUsdDop}
           />
         )}
       </Modal>

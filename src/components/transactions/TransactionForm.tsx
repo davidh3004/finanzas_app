@@ -14,6 +14,7 @@ interface TransactionFormProps {
   categories: Category[]
   onSuccess: () => void
   defaultType?: TransactionType
+  tasaUsdDop?: number
 }
 
 interface AISuggestion {
@@ -52,10 +53,11 @@ export default function TransactionForm({
   categories,
   onSuccess,
   defaultType = 'expense',
+  tasaUsdDop = 60,
 }: TransactionFormProps) {
   const [type, setType] = useState<TransactionType>(defaultType)
   const [amount, setAmount] = useState('')
-  const [currency, setCurrency] = useState('DOP')
+  const [currency, setCurrency] = useState(accounts[0]?.currency ?? 'DOP')
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
   const [counterpartyAccountId, setCounterpartyAccountId] = useState('')
   const [categoryId, setCategoryId] = useState('')
@@ -121,6 +123,12 @@ export default function TransactionForm({
     setCategoryId('')
     setAiSuggestion(null)
   }, [type])
+
+  // Sync currency to the selected account's native currency
+  useEffect(() => {
+    const account = accounts.find(a => a.id === accountId)
+    if (account?.currency) setCurrency(account.currency)
+  }, [accountId, accounts])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -377,19 +385,23 @@ export default function TransactionForm({
       )}
 
       {/* Saldo resultante preview */}
-      {activeAccount && amount && parseFloat(amount) > 0 && type !== 'transfer' && (
-        <div className="text-xs text-slate-500 flex justify-between px-1">
-          <span>Saldo de {activeAccount.name} después:</span>
-          <span className="font-medium text-slate-300">
-            {formatCurrency(
-              type === 'income'
-                ? activeAccount.current_balance + parseFloat(amount)
-                : activeAccount.current_balance - parseFloat(amount),
-              activeAccount.currency
-            )}
-          </span>
-        </div>
-      )}
+      {activeAccount && amount && parseFloat(amount) > 0 && type !== 'transfer' && (() => {
+        const raw = parseFloat(amount)
+        const accCurr = activeAccount.currency ?? 'DOP'
+        const converted = currency === accCurr ? raw
+          : currency === 'USD' && accCurr === 'DOP' ? raw * tasaUsdDop
+          : currency === 'DOP' && accCurr === 'USD' ? raw / tasaUsdDop
+          : raw
+        const after = type === 'income'
+          ? activeAccount.current_balance + converted
+          : activeAccount.current_balance - converted
+        return (
+          <div className="text-xs text-slate-500 flex justify-between px-1">
+            <span>Saldo de {activeAccount.name} después:</span>
+            <span className="font-medium text-slate-300">{formatCurrency(after, accCurr)}</span>
+          </div>
+        )
+      })()}
 
       {/* Botón submit */}
       <button

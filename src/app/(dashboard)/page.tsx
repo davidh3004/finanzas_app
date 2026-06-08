@@ -30,10 +30,10 @@ export default async function DashboardPage() {
     supabase.from('config').select('*').eq('user_id', user.id).single(),
     supabase.from('accounts').select('*').eq('user_id', user.id).eq('is_active', true),
     supabase.from('funds').select('*').eq('user_id', user.id).eq('is_active', true),
-    supabase.from('transactions').select('amount')
+    supabase.from('transactions').select('amount, currency')
       .eq('user_id', user.id).eq('type', 'income').eq('status', 'confirmed')
       .gte('date', firstDay).lte('date', lastDay),
-    supabase.from('transactions').select('amount, category_id')
+    supabase.from('transactions').select('amount, currency, category_id')
       .eq('user_id', user.id).eq('type', 'expense').eq('status', 'confirmed')
       .gte('date', firstDay).lte('date', lastDay),
     supabase.from('transactions').select('id, amount, merchant, description, date')
@@ -48,13 +48,19 @@ export default async function DashboardPage() {
   ])
 
   // ── Totales del mes ──────────────────────────────────────
-  const totalIngresos = (ingresosTx ?? []).reduce((s, t) => s + Number(t.amount), 0)
-  const totalGastos   = (gastosTx   ?? []).reduce((s, t) => s + Number(t.amount), 0)
+  const tasa = Number(config?.tasa_usd_dop ?? 60)
+
+  function toDOP(amount: number, currency: string) {
+    return currency === 'USD' ? amount * tasa : amount
+  }
+
+  const totalIngresos = (ingresosTx ?? []).reduce((s, t) => s + toDOP(Number(t.amount), t.currency ?? 'DOP'), 0)
+  const totalGastos   = (gastosTx   ?? []).reduce((s, t) => s + toDOP(Number(t.amount), t.currency ?? 'DOP'), 0)
   const disponible    = totalIngresos - totalGastos
 
   const patrimonioNeto = (accounts ?? [])
     .filter(a => a.type !== 'credit_card')
-    .reduce((s, a) => s + Number(a.current_balance), 0)
+    .reduce((s, a) => s + toDOP(Number(a.current_balance), a.currency ?? 'DOP'), 0)
 
   // ── Gastos por categoría padre (para presupuesto) ────────
   const parentMap: Record<string, string | null> = {}
@@ -64,7 +70,7 @@ export default async function DashboardPage() {
   for (const t of gastosTx ?? []) {
     if (!t.category_id) continue
     const parentId = parentMap[t.category_id] ?? t.category_id
-    spentByParent[parentId] = (spentByParent[parentId] ?? 0) + Number(t.amount)
+    spentByParent[parentId] = (spentByParent[parentId] ?? 0) + toDOP(Number(t.amount), t.currency ?? 'DOP')
   }
 
   const budgetMap: Record<string, number> = {}

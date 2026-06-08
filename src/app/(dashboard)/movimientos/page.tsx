@@ -38,6 +38,7 @@ export default async function MovimientosPage({
     { data: accounts },
     { data: categories },
     { data: pending },
+    { data: config },
   ] = await Promise.all([
     txQuery,
     supabase.from('accounts').select('*').eq('user_id', user.id).eq('is_active', true).order('name'),
@@ -48,6 +49,7 @@ export default async function MovimientosPage({
       .eq('user_id', user.id)
       .eq('status', 'pending_review')
       .order('created_at', { ascending: false }),
+    supabase.from('config').select('tasa_usd_dop').eq('user_id', user.id).single(),
   ])
 
   if (txError) {
@@ -72,6 +74,7 @@ export default async function MovimientosPage({
         pendingTransactions={(pending ?? []) as never}
         openForm={openForm}
         filtro={filtro}
+        tasaUsdDop={Number(config?.tasa_usd_dop ?? 60)}
       />
     </div>
   )
