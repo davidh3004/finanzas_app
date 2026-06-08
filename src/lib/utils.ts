@@ -19,7 +19,14 @@ export function formatCurrency(
 }
 
 export function formatDate(date: string | Date, locale: string = 'es-DO'): string {
-  const d = typeof date === 'string' ? new Date(date + 'T00:00:00') : date
+  let d: Date
+  if (typeof date === 'string') {
+    // Full timestamp already has time component — don't append T00:00:00
+    d = date.includes('T') ? new Date(date) : new Date(date + 'T00:00:00')
+  } else {
+    d = date
+  }
+  if (isNaN(d.getTime())) return '—'
   return new Intl.DateTimeFormat(locale, {
     day: 'numeric',
     month: 'short',

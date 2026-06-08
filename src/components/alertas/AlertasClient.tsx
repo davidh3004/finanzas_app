@@ -90,7 +90,7 @@ export default function AlertasClient({ alerts: initial }: { alerts: Alert[] }) 
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-100">{alert.title}</p>
                     <p className="text-xs text-slate-400 mt-0.5">{alert.message}</p>
-                    <p className="text-xs text-slate-600 mt-1">{formatDate(alert.created_at)}</p>
+                    <p className="text-xs text-slate-600 mt-1">{formatDate(alert.created_at.slice(0, 10))}</p>
                   </div>
                   {!alert.read ? (
                     <button
