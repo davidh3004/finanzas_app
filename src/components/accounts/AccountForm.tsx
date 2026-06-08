@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { createAccount } from '@/app/actions/accounts'
-import type { AccountType } from '@/types/database'
+import { createAccount, updateAccount } from '@/app/actions/accounts'
+import type { Account, AccountType } from '@/types/database'
 import { Loader2, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface AccountFormProps {
+  account?:  Account
   onSuccess: () => void
 }
 
@@ -25,31 +26,42 @@ const COLORS = [
   '#64748b', '#ef4444',
 ]
 
-export default function AccountForm({ onSuccess }: AccountFormProps) {
-  const [name, setName] = useState('')
-  const [type, setType] = useState<AccountType>('checking')
-  const [currency, setCurrency] = useState('DOP')
+export default function AccountForm({ account, onSuccess }: AccountFormProps) {
+  const isEditing = !!account
+
+  const [name,           setName]           = useState(account?.name ?? '')
+  const [type,           setType]           = useState<AccountType>(account?.type as AccountType ?? 'checking')
+  const [currency,       setCurrency]       = useState(account?.currency ?? 'DOP')
   const [initialBalance, setInitialBalance] = useState('0')
-  const [color, setColor] = useState(COLORS[0])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [color,          setColor]          = useState(account?.color ?? COLORS[0])
+  const [loading,        setLoading]        = useState(false)
+  const [error,          setError]          = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
 
-    const bal = parseFloat(initialBalance.replace(',', '.'))
-    if (isNaN(bal)) {
-      setError('Ingresa un saldo inicial válido')
-      return
-    }
     if (!name.trim()) {
       setError('El nombre es requerido')
       return
     }
 
     setLoading(true)
-    const result = await createAccount({ name: name.trim(), type, currency, initialBalance: bal, color })
+
+    let result: { success: boolean; error?: string }
+
+    if (isEditing) {
+      result = await updateAccount(account.id, { name: name.trim(), color })
+    } else {
+      const bal = parseFloat(initialBalance.replace(',', '.'))
+      if (isNaN(bal)) {
+        setLoading(false)
+        setError('Ingresa un saldo inicial válido')
+        return
+      }
+      result = await createAccount({ name: name.trim(), type, currency, initialBalance: bal, color })
+    }
+
     setLoading(false)
 
     if (result.success) onSuccess()
@@ -71,50 +83,54 @@ export default function AccountForm({ onSuccess }: AccountFormProps) {
         />
       </div>
 
-      {/* Tipo */}
-      <div>
-        <label className="block text-xs text-slate-400 mb-1.5">Tipo</label>
-        <div className="relative">
-          <select
-            value={type}
-            onChange={e => setType(e.target.value as AccountType)}
-            className="w-full appearance-none bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 pr-8"
-          >
-            {ACCOUNT_TYPES.map(t => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-        </div>
-      </div>
-
-      {/* Moneda + Saldo inicial */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Tipo (solo en creación) */}
+      {!isEditing && (
         <div>
-          <label className="block text-xs text-slate-400 mb-1.5">Moneda</label>
+          <label className="block text-xs text-slate-400 mb-1.5">Tipo</label>
           <div className="relative">
             <select
-              value={currency}
-              onChange={e => setCurrency(e.target.value)}
+              value={type}
+              onChange={e => setType(e.target.value as AccountType)}
               className="w-full appearance-none bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 pr-8"
             >
-              <option value="DOP">DOP (RD$)</option>
-              <option value="USD">USD (US$)</option>
+              {ACCOUNT_TYPES.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
           </div>
         </div>
-        <div>
-          <label className="block text-xs text-slate-400 mb-1.5">Saldo inicial</label>
-          <input
-            type="number"
-            value={initialBalance}
-            onChange={e => setInitialBalance(e.target.value)}
-            step="0.01"
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition"
-          />
+      )}
+
+      {/* Moneda + Saldo inicial (solo en creación) */}
+      {!isEditing && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Moneda</label>
+            <div className="relative">
+              <select
+                value={currency}
+                onChange={e => setCurrency(e.target.value)}
+                className="w-full appearance-none bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 pr-8"
+              >
+                <option value="DOP">DOP (RD$)</option>
+                <option value="USD">USD (US$)</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Saldo inicial</label>
+            <input
+              type="number"
+              value={initialBalance}
+              onChange={e => setInitialBalance(e.target.value)}
+              step="0.01"
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Color */}
       <div>
@@ -146,7 +162,7 @@ export default function AccountForm({ onSuccess }: AccountFormProps) {
         disabled={loading}
         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold text-white text-sm transition-colors disabled:opacity-50"
       >
-        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar cuenta'}
+        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : isEditing ? 'Guardar cambios' : 'Guardar cuenta'}
       </button>
     </form>
   )

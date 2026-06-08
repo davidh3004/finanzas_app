@@ -4,10 +4,10 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Modal from '@/components/ui/Modal'
 import FundForm from '@/components/funds/FundForm'
-import { aportarFondo } from '@/app/actions/funds'
+import { aportarFondo, deleteFund } from '@/app/actions/funds'
 import type { Fund, Account } from '@/types/database'
 import { formatCurrency, calcMonthsToGoal, cn } from '@/lib/utils'
-import { Plus, Pencil, PlusCircle, Loader2, Umbrella, TrendingUp, Target } from 'lucide-react'
+import { Plus, Pencil, PlusCircle, Loader2, Umbrella, TrendingUp, Target, Trash2 } from 'lucide-react'
 
 interface FondosClientProps {
   funds: Fund[]
@@ -27,16 +27,25 @@ const fundColor = {
 } as const
 
 export default function FondosClient({ funds, accounts }: FondosClientProps) {
-  const [modalOpen, setModalOpen]       = useState(false)
-  const [editingFund, setEditingFund]   = useState<Fund | null>(null)
-  const [aportarId, setAportarId]       = useState<string | null>(null)
-  const [aportarAmount, setAportarAmount] = useState('')
-  const [aportarLoading, setAportarLoading] = useState(false)
+  const [modalOpen, setModalOpen]             = useState(false)
+  const [editingFund, setEditingFund]         = useState<Fund | null>(null)
+  const [aportarId, setAportarId]             = useState<string | null>(null)
+  const [aportarAmount, setAportarAmount]     = useState('')
+  const [aportarLoading, setAportarLoading]   = useState(false)
+  const [deletingId, setDeletingId]           = useState<string | null>(null)
   const router = useRouter()
 
   function handleSuccess() {
     setModalOpen(false)
     setEditingFund(null)
+    router.refresh()
+  }
+
+  async function handleDelete(fund: Fund) {
+    if (!confirm(`¿Eliminar el fondo "${fund.name}"? Esta acción lo oculta pero conserva el historial.`)) return
+    setDeletingId(fund.id)
+    await deleteFund(fund.id)
+    setDeletingId(null)
     router.refresh()
   }
 
@@ -106,12 +115,23 @@ export default function FondosClient({ funds, accounts }: FondosClientProps) {
                       <p className="text-xs text-slate-500 capitalize">{fund.type}</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setEditingFund(fund)}
-                    className="p-1.5 rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-800 transition-colors"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setEditingFund(fund)}
+                      className="p-1.5 rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-800 transition-colors"
+                      title="Editar"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(fund)}
+                      disabled={deletingId === fund.id}
+                      className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Montos */}

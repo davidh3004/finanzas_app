@@ -16,6 +16,7 @@ import {
   Settings,
   LogOut,
   TrendingUp,
+  TrendingDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -28,6 +29,7 @@ const navItems = [
   { href: '/fondos',         label: 'Fondos',        icon: Target          },
   { href: '/tarjetas',       label: 'Tarjetas',      icon: CreditCard      },
   { href: '/presupuestos',   label: 'Presupuestos',  icon: PieChart        },
+  { href: '/categorias',     label: 'Categorías',    icon: TrendingDown    },
   { href: '/alertas',        label: 'Alertas',       icon: Bell            },
   { href: '/simulador',      label: 'Simulador',     icon: Calculator      },
   { href: '/chat',           label: 'Chat IA',       icon: MessageSquare   },

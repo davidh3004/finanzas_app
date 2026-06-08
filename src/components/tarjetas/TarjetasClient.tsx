@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Modal from '@/components/ui/Modal'
 import TarjetaForm from '@/components/tarjetas/TarjetaForm'
+import { deleteCreditCard } from '@/app/actions/creditCards'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { formatCurrency } from '@/lib/utils'
-import { CreditCard, AlertTriangle, Plus } from 'lucide-react'
+import { CreditCard, AlertTriangle, Plus, Pencil, Trash2 } from 'lucide-react'
 
 interface CardData {
   id:             string
@@ -28,11 +30,23 @@ interface TarjetasClientProps {
 }
 
 export default function TarjetasClient({ cards }: TarjetasClientProps) {
-  const [modalOpen, setModalOpen] = useState(false)
+  const [modalOpen,   setModalOpen]   = useState(false)
+  const [editingCard, setEditingCard] = useState<CardData | null>(null)
+  const [deletingId,  setDeletingId]  = useState<string | null>(null)
+  const router = useRouter()
 
   function handleSuccess() {
     setModalOpen(false)
-    window.location.href = '/tarjetas'
+    setEditingCard(null)
+    router.refresh()
+  }
+
+  async function handleDelete(card: CardData) {
+    if (!confirm(`¿Cancelar la tarjeta "${card.account?.name}"? Esta acción oculta la tarjeta pero conserva el historial.`)) return
+    setDeletingId(card.id)
+    await deleteCreditCard(card.id)
+    setDeletingId(null)
+    router.refresh()
   }
 
   return (
@@ -101,6 +115,23 @@ export default function TarjetasClient({ cards }: TarjetasClientProps) {
                   {isHighUtil && (
                     <AlertTriangle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
                   )}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setEditingCard(card)}
+                      className="p-1.5 rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-800 transition-colors"
+                      title="Editar"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(card)}
+                      disabled={deletingId === card.id}
+                      className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                      title="Cancelar tarjeta"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Utilización */}
@@ -140,8 +171,12 @@ export default function TarjetasClient({ cards }: TarjetasClientProps) {
         )}
       </div>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nueva tarjeta de crédito">
-        <TarjetaForm onSuccess={handleSuccess} />
+      <Modal
+        open={modalOpen || editingCard !== null}
+        onClose={() => { setModalOpen(false); setEditingCard(null) }}
+        title={editingCard ? 'Editar tarjeta' : 'Nueva tarjeta de crédito'}
+      >
+        <TarjetaForm card={editingCard ?? undefined} onSuccess={handleSuccess} />
       </Modal>
     </>
   )

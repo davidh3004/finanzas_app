@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Modal from '@/components/ui/Modal'
 import AccountForm from '@/components/accounts/AccountForm'
+import { deleteAccount } from '@/app/actions/accounts'
 import type { Account, AccountType } from '@/types/database'
 import { formatCurrency, cn } from '@/lib/utils'
-import { Wallet, PiggyBank, TrendingUp, CreditCard, Banknote, Plus } from 'lucide-react'
+import { Wallet, PiggyBank, TrendingUp, CreditCard, Banknote, Plus, Pencil, Trash2 } from 'lucide-react'
 
 const typeLabel: Record<AccountType, string> = {
   checking:        'Cuenta corriente',
@@ -33,11 +34,21 @@ interface CuentasClientProps {
 }
 
 export default function CuentasClient({ accounts, patrimonioNeto, deudaTarjeta }: CuentasClientProps) {
-  const [modalOpen, setModalOpen] = useState(false)
+  const [modalOpen,    setModalOpen]    = useState(false)
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null)
+  const [deletingId,   setDeletingId]   = useState<string | null>(null)
   const router = useRouter()
 
   function handleSuccess() {
     setModalOpen(false)
+    setEditingAccount(null)
+    router.refresh()
+  }
+
+  async function handleDelete(id: string) {
+    setDeletingId(id)
+    await deleteAccount(id)
+    setDeletingId(null)
     router.refresh()
   }
 
@@ -118,6 +129,27 @@ export default function CuentasClient({ accounts, patrimonioNeto, deudaTarjeta }
                       </p>
                       <p className="text-xs text-slate-600">{account.currency}</p>
                     </div>
+                    <div className="flex items-center gap-1 flex-shrink-0 ml-1">
+                      <button
+                        onClick={() => setEditingAccount(account)}
+                        className="p-1.5 rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-800 transition-colors"
+                        title="Editar"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`¿Eliminar la cuenta "${account.name}"? Esta acción oculta la cuenta pero conserva el historial.`)) {
+                            handleDelete(account.id)
+                          }
+                        }}
+                        disabled={deletingId === account.id}
+                        className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                        title="Eliminar"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 )
               })}
@@ -126,9 +158,16 @@ export default function CuentasClient({ accounts, patrimonioNeto, deudaTarjeta }
         </div>
       </div>
 
-      {/* Modal nueva cuenta */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nueva cuenta">
-        <AccountForm onSuccess={handleSuccess} />
+      {/* Modal nueva / editar cuenta */}
+      <Modal
+        open={modalOpen || editingAccount !== null}
+        onClose={() => { setModalOpen(false); setEditingAccount(null) }}
+        title={editingAccount ? 'Editar cuenta' : 'Nueva cuenta'}
+      >
+        <AccountForm
+          account={editingAccount ?? undefined}
+          onSuccess={handleSuccess}
+        />
       </Modal>
     </>
   )

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   createAllocationRule,
+  updateAllocationRule,
   deleteAllocationRule,
   updateConfig,
 } from '@/app/actions/allocation'
@@ -48,10 +49,11 @@ export default function AllocationClient({
   ingresoNeto,
   tasaUsdDop,
 }: AllocationClientProps) {
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm]         = useState<RuleForm>(EMPTY_RULE)
-  const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState<string | null>(null)
+  const [showForm, setShowForm]   = useState(false)
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null)
+  const [form, setForm]           = useState<RuleForm>(EMPTY_RULE)
+  const [saving, setSaving]       = useState(false)
+  const [error, setError]         = useState<string | null>(null)
 
   // Config edit
   const [editingConfig, setEditingConfig] = useState(false)
@@ -88,18 +90,55 @@ export default function AllocationClient({
     if (!form.destinationId) { setError('Selecciona un destino'); return }
 
     setSaving(true)
-    const result = await createAllocationRule({
-      name:          form.name,
-      priority:      rules.length,
-      calcType:      form.calcType,
-      calcBase:      form.calcBase,
-      value,
-      destination:   form.destination,
-      destinationId: form.destinationId,
-    })
+    let result: { success: boolean; error?: string }
+
+    if (editingRuleId) {
+      const rule = rules.find(r => r.id === editingRuleId)
+      result = await updateAllocationRule(editingRuleId, {
+        name:          form.name,
+        priority:      rule?.priority ?? 0,
+        calcType:      form.calcType,
+        calcBase:      form.calcBase,
+        value,
+        destination:   form.destination,
+        destinationId: form.destinationId,
+      })
+    } else {
+      result = await createAllocationRule({
+        name:          form.name,
+        priority:      rules.length,
+        calcType:      form.calcType,
+        calcBase:      form.calcBase,
+        value,
+        destination:   form.destination,
+        destinationId: form.destinationId,
+      })
+    }
+
     setSaving(false)
-    if (result.success) { setShowForm(false); setForm(EMPTY_RULE); router.refresh() }
-    else setError(result.error ?? 'Error al guardar')
+    if (result.success) {
+      setShowForm(false)
+      setEditingRuleId(null)
+      setForm(EMPTY_RULE)
+      router.refresh()
+    } else {
+      setError(result.error ?? 'Error al guardar')
+    }
+  }
+
+  function handleEditRule(rule: (typeof rules)[0]) {
+    setEditingRuleId(rule.id)
+    setShowForm(true)
+    setForm({
+      name:          rule.name,
+      calcType:      rule.calc_type,
+      calcBase:      rule.calc_base,
+      value:         String(rule.value),
+      destination:   rule.destination as 'fund' | 'account' | 'category',
+      destinationId: rule.destination_id,
+      priority:      rule.priority,
+    })
+    setError(null)
   }
 
   async function handleDelete(id: string) {
@@ -189,7 +228,7 @@ export default function AllocationClient({
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Reglas de reparto</p>
           <button
-            onClick={() => setShowForm(v => !v)}
+            onClick={() => { setShowForm(v => !v); setEditingRuleId(null); setForm(EMPTY_RULE) }}
             className="flex items-center gap-1 text-xs text-emerald-400 hover:underline"
           >
             <Plus className="w-3 h-3" /> Nueva regla
@@ -286,9 +325,9 @@ export default function AllocationClient({
             <div className="flex gap-2">
               <button type="submit" disabled={saving}
                 className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-1">
-                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Guardar regla'}
+                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : editingRuleId ? 'Guardar cambios' : 'Guardar regla'}
               </button>
-              <button type="button" onClick={() => { setShowForm(false); setForm(EMPTY_RULE) }}
+              <button type="button" onClick={() => { setShowForm(false); setEditingRuleId(null); setForm(EMPTY_RULE) }}
                 className="px-4 py-2 rounded-xl border border-slate-700 text-slate-400 text-sm hover:text-white transition-colors">
                 Cancelar
               </button>
@@ -319,13 +358,21 @@ export default function AllocationClient({
                       {' → '}{rule.destination}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-emerald-400">
                       {formatCurrency(amount)}
                     </span>
                     <button
+                      onClick={() => handleEditRule(rule)}
+                      className="text-slate-600 hover:text-slate-300 transition-colors"
+                      title="Editar"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
                       onClick={() => handleDelete(rule.id)}
                       className="text-slate-600 hover:text-red-400 transition-colors"
+                      title="Eliminar"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

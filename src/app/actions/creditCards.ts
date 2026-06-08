@@ -65,3 +65,74 @@ export async function createCreditCard(
   revalidatePath('/')
   return { success: true }
 }
+
+export async function updateCreditCard(
+  id: string,
+  input: Omit<CreditCardInput, 'currency'>
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'No autenticado' }
+
+  // Find the account_id for this card
+  const { data: card } = await supabase
+    .from('credit_cards')
+    .select('account_id')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!card) return { success: false, error: 'Tarjeta no encontrada' }
+
+  const [{ error: cardError }, { error: accountError }] = await Promise.all([
+    supabase.from('credit_cards').update({
+      credit_limit:   input.creditLimit,
+      cut_day:        input.cutDay,
+      due_day:        input.dueDay,
+      annual_fee:     input.annualFee,
+      cashback_rules: input.cashbackRules,
+    }).eq('id', id).eq('user_id', user.id),
+    supabase.from('accounts').update({
+      name:  input.name,
+      color: input.color,
+    }).eq('id', card.account_id).eq('user_id', user.id),
+  ])
+
+  if (cardError) return { success: false, error: cardError.message }
+  if (accountError) return { success: false, error: accountError.message }
+
+  revalidatePath('/tarjetas')
+  revalidatePath('/cuentas')
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function deleteCreditCard(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'No autenticado' }
+
+  const { data: card } = await supabase
+    .from('credit_cards')
+    .select('account_id')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!card) return { success: false, error: 'Tarjeta no encontrada' }
+
+  const [{ error: cardError }, { error: accountError }] = await Promise.all([
+    supabase.from('credit_cards').update({ status: 'cancelled' }).eq('id', id).eq('user_id', user.id),
+    supabase.from('accounts').update({ is_active: false }).eq('id', card.account_id).eq('user_id', user.id),
+  ])
+
+  if (cardError) return { success: false, error: cardError.message }
+  if (accountError) return { success: false, error: accountError.message }
+
+  revalidatePath('/tarjetas')
+  revalidatePath('/cuentas')
+  revalidatePath('/')
+  return { success: true }
+}

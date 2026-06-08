@@ -58,3 +58,46 @@ export async function updateAccountBalance(
 
   return { success: true }
 }
+
+export async function updateAccount(
+  id: string,
+  input: { name: string; color: string }
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'No autenticado' }
+
+  const { error } = await supabase
+    .from('accounts')
+    .update({ name: input.name, color: input.color })
+    .eq('id', id)
+    .eq('user_id', user.id)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/cuentas')
+  revalidatePath('/tarjetas')
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function deleteAccount(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'No autenticado' }
+
+  const { error } = await supabase
+    .from('accounts')
+    .update({ is_active: false })
+    .eq('id', id)
+    .eq('user_id', user.id)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/cuentas')
+  revalidatePath('/tarjetas')
+  revalidatePath('/')
+  return { success: true }
+}

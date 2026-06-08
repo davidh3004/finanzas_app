@@ -1,12 +1,26 @@
 'use client'
 
 import { useState } from 'react'
-import { createCreditCard } from '@/app/actions/creditCards'
+import { createCreditCard, updateCreditCard } from '@/app/actions/creditCards'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+interface CardData {
+  id:             string
+  credit_limit:   number
+  cut_day:        number
+  due_day:        number
+  annual_fee:     number
+  cashback_rules: Record<string, number>
+  account: {
+    name:  string
+    color: string | null
+  } | null
+}
+
 interface TarjetaFormProps {
-  onSuccess: () => void
+  card?:      CardData
+  onSuccess:  () => void
 }
 
 const COLORS = [
@@ -15,15 +29,19 @@ const COLORS = [
   '#64748b', '#10b981',
 ]
 
-export default function TarjetaForm({ onSuccess }: TarjetaFormProps) {
-  const [name,        setName]        = useState('')
+export default function TarjetaForm({ card, onSuccess }: TarjetaFormProps) {
+  const isEditing = !!card
+
+  const [name,        setName]        = useState(card?.account?.name ?? '')
   const [currency,    setCurrency]    = useState('DOP')
-  const [color,       setColor]       = useState(COLORS[0])
-  const [creditLimit, setCreditLimit] = useState('')
-  const [cutDay,      setCutDay]      = useState('15')
-  const [dueDay,      setDueDay]      = useState('5')
-  const [annualFee,   setAnnualFee]   = useState('0')
-  const [cashback,    setCashback]    = useState<{ cat: string; pct: string }[]>([])
+  const [color,       setColor]       = useState(card?.account?.color ?? COLORS[0])
+  const [creditLimit, setCreditLimit] = useState(String(card?.credit_limit ?? ''))
+  const [cutDay,      setCutDay]      = useState(String(card?.cut_day ?? '15'))
+  const [dueDay,      setDueDay]      = useState(String(card?.due_day ?? '5'))
+  const [annualFee,   setAnnualFee]   = useState(String(card?.annual_fee ?? '0'))
+  const [cashback,    setCashback]    = useState<{ cat: string; pct: string }[]>(
+    card ? Object.entries(card.cashback_rules).map(([cat, pct]) => ({ cat, pct: String(pct) })) : []
+  )
   const [loading,     setLoading]     = useState(false)
   const [error,       setError]       = useState<string | null>(null)
 
@@ -31,7 +49,7 @@ export default function TarjetaForm({ onSuccess }: TarjetaFormProps) {
     setCashback(prev => [...prev, { cat: '', pct: '' }])
   }
 
-  function updateCashback(i: number, field: 'cat' | 'pct', value: string) {
+  function updateCashbackRow(i: number, field: 'cat' | 'pct', value: string) {
     setCashback(prev => prev.map((row, idx) => idx === i ? { ...row, [field]: value } : row))
   }
 
@@ -59,16 +77,31 @@ export default function TarjetaForm({ onSuccess }: TarjetaFormProps) {
     }
 
     setLoading(true)
-    const result = await createCreditCard({
-      name:          name.trim(),
-      currency,
-      color,
-      creditLimit:   limit,
-      cutDay:        cut,
-      dueDay:        due,
-      annualFee:     parseFloat(annualFee) || 0,
-      cashbackRules,
-    })
+    let result: { success: boolean; error?: string }
+
+    if (isEditing) {
+      result = await updateCreditCard(card.id, {
+        name:          name.trim(),
+        color,
+        creditLimit:   limit,
+        cutDay:        cut,
+        dueDay:        due,
+        annualFee:     parseFloat(annualFee) || 0,
+        cashbackRules,
+      })
+    } else {
+      result = await createCreditCard({
+        name:          name.trim(),
+        currency,
+        color,
+        creditLimit:   limit,
+        cutDay:        cut,
+        dueDay:        due,
+        annualFee:     parseFloat(annualFee) || 0,
+        cashbackRules,
+      })
+    }
+
     setLoading(false)
 
     if (result.success) onSuccess()
@@ -90,19 +123,38 @@ export default function TarjetaForm({ onSuccess }: TarjetaFormProps) {
         />
       </div>
 
-      {/* Moneda + Límite */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs text-slate-400 mb-1.5">Moneda</label>
-          <select
-            value={currency}
-            onChange={e => setCurrency(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
-          >
-            <option value="DOP">DOP (RD$)</option>
-            <option value="USD">USD (US$)</option>
-          </select>
+      {/* Moneda (solo en creación) */}
+      {!isEditing && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Moneda</label>
+            <select
+              value={currency}
+              onChange={e => setCurrency(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+            >
+              <option value="DOP">DOP (RD$)</option>
+              <option value="USD">USD (US$)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Límite de crédito</label>
+            <input
+              type="number"
+              value={creditLimit}
+              onChange={e => setCreditLimit(e.target.value)}
+              placeholder="50000"
+              step="1000"
+              min="0"
+              required
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 transition"
+            />
+          </div>
         </div>
+      )}
+
+      {/* Límite (solo en edición) */}
+      {isEditing && (
         <div>
           <label className="block text-xs text-slate-400 mb-1.5">Límite de crédito</label>
           <input
@@ -116,7 +168,7 @@ export default function TarjetaForm({ onSuccess }: TarjetaFormProps) {
             className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 transition"
           />
         </div>
-      </div>
+      )}
 
       {/* Días de corte y pago */}
       <div className="grid grid-cols-2 gap-3">
@@ -198,14 +250,14 @@ export default function TarjetaForm({ onSuccess }: TarjetaFormProps) {
                 <input
                   type="text"
                   value={row.cat}
-                  onChange={e => updateCashback(i, 'cat', e.target.value)}
+                  onChange={e => updateCashbackRow(i, 'cat', e.target.value)}
                   placeholder="Categoría (ej. gasolina)"
                   className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500"
                 />
                 <input
                   type="number"
                   value={row.pct}
-                  onChange={e => updateCashback(i, 'pct', e.target.value)}
+                  onChange={e => updateCashbackRow(i, 'pct', e.target.value)}
                   placeholder="%"
                   min="0" max="100" step="0.5"
                   className="w-16 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500"
@@ -234,7 +286,7 @@ export default function TarjetaForm({ onSuccess }: TarjetaFormProps) {
         disabled={loading}
         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold text-white text-sm transition-colors disabled:opacity-50"
       >
-        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Agregar tarjeta'}
+        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : isEditing ? 'Guardar cambios' : 'Agregar tarjeta'}
       </button>
     </form>
   )

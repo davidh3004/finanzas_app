@@ -102,3 +102,23 @@ export async function aportarFondo(
   revalidatePath('/')
   return { success: true }
 }
+
+export async function deleteFund(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'No autenticado' }
+
+  const { error } = await supabase
+    .from('funds')
+    .update({ is_active: false })
+    .eq('id', id)
+    .eq('user_id', user.id)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/fondos')
+  revalidatePath('/')
+  return { success: true }
+}

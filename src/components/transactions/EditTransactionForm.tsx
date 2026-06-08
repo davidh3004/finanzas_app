@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { updateTransaction } from '@/app/actions/transactions'
+import { updateTransaction, discardTransaction } from '@/app/actions/transactions'
 import type { Category, Transaction } from '@/types/database'
 import { cn } from '@/lib/utils'
-import { Loader2, ChevronDown } from 'lucide-react'
+import { Loader2, ChevronDown, Trash2 } from 'lucide-react'
 
 interface EditTransactionFormProps {
   transaction: Transaction
@@ -34,6 +34,7 @@ export default function EditTransactionForm({
   const [categoryId,  setCategoryId]  = useState(t.category_id ?? '')
   const [date,        setDate]        = useState(t.date)
   const [loading,     setLoading]     = useState(false)
+  const [deleting,    setDeleting]    = useState(false)
   const [error,       setError]       = useState<string | null>(null)
 
   const parentCats = categories.filter(
@@ -175,10 +176,25 @@ export default function EditTransactionForm({
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || deleting}
         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold text-white text-sm transition-colors disabled:opacity-50"
       >
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar cambios'}
+      </button>
+
+      <button
+        type="button"
+        disabled={loading || deleting}
+        onClick={async () => {
+          if (!confirm('¿Eliminar este movimiento? El saldo de la cuenta se revertirá.')) return
+          setDeleting(true)
+          await discardTransaction(t.id)
+          setDeleting(false)
+          onSuccess()
+        }}
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 text-sm transition-colors disabled:opacity-50"
+      >
+        {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Trash2 className="w-4 h-4" /> Eliminar movimiento</>}
       </button>
     </form>
   )
